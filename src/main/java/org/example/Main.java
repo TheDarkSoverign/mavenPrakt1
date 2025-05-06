@@ -1,8 +1,8 @@
 package org.example;
 
 import java.sql.*;
-import java.util.Arrays;
-import java.util.NoSuchElementException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -17,9 +17,8 @@ import static java.lang.Math.pow;
 public class Main {
     protected static Scanner sc = new Scanner(System.in);
     protected static Connection con;
-    protected static String table = "task1";
+    protected static String table;
     static final String schema = "task1";
-    static final String selectFromTable = "SELECT * FROM " + table;
     static final String tablePart = ("+" + "-".repeat(5) + "+" + "-".repeat(12) + "+" + "-".repeat(12) + "+" + "-".repeat(17) + "+" + "-".repeat(12) + "+" + "-".repeat(22) + "+" + "-".repeat(17) + "+" + "-".repeat(17) + "+" + "-".repeat(32) + "+");
 
     static String Url = "jdbc:postgresql://localhost:5432/postgres";
@@ -50,7 +49,8 @@ public class Main {
             }
         }
 
-        String query = "CREATE TABLE IF NOT EXISTS task1 (id SERIAL, sum INT, sub INT, mul INT, div INT, mod INT, abs_1 INT, abs_2 INT, pow INT)";
+        table = "task1";
+        String query = "CREATE TABLE IF NOT EXISTS " + table + " (id SERIAL, sum INT, sub INT, mul INT, div INT, mod INT, abs_1 INT, abs_2 INT, pow INT)";
         try {
             Statement st = con.createStatement();
             st.executeUpdate(query);
@@ -144,27 +144,25 @@ class Task extends Main {
             Statement st = con.createStatement();
             ResultSet rs = st.executeQuery(query);
             try {
-                int count = 1;
                 int nameLength = 15;
                 while (rs.next()) {
                     int currentNameLength = rs.getString(1).length();
                     if (currentNameLength > nameLength) {
-                        count++;
                         nameLength = currentNameLength;
                     }
                 }
                 String tablePart = "+" + "-".repeat(5) + "+" + "-".repeat(nameLength + 2) + "+";
                 System.out.println("Список таблиц:");
                 System.out.println(tablePart);
-                System.out.printf("| %-3s | %-15s |\n", "ID", "Названия таблиц");
-
+                System.out.printf("| %-3s | %-" + nameLength + "s |\n", "ID", "Названия таблиц");
+                rs = st.executeQuery(query);
                 int i = 1;
                 while (rs.next()) {
                     String tableName = rs.getString("Названия_таблиц");
-                    System.out.println("+" + "-".repeat(5) + "+" + "-".repeat(27) + "+");
+                    System.out.println(tablePart);
                     System.out.printf("| %-3d | %-25s |\n", i++, tableName);
                 }
-                System.out.println("+" + "-".repeat(5) + "+" + "-".repeat(27) + "+");
+                System.out.println(tablePart);
             } catch (SQLException e) {
                 System.out.println("Не удалось вывести результат, " + e.getMessage());
             }
@@ -176,6 +174,7 @@ class Task extends Main {
     public void task2() {
         System.out.print("Введите название таблицы: ");
         table = sc.next();
+        sc.nextLine();
         String query = "CREATE TABLE IF NOT EXISTS " + table + " (id SERIAL, sum INT, sub INT, mul INT, div INT, mod INT, abs_1 INT, abs_2 INT, pow INT)";
         try {
             Statement st = con.createStatement();
@@ -268,26 +267,62 @@ class Task extends Main {
 
     public void selectData() {
         System.out.println("Получаю данные...");
-        try (PreparedStatement pst = con.prepareStatement(selectFromTable)) {
-            try (ResultSet rs = pst.executeQuery()) {
-                System.out.println("Полученные данные: ");
-                System.out.println(tablePart);
-                System.out.printf("| %3s | %-10s | %-10s | %-15s | %-10s | %-20s | %-15s | %-15s | %-30s |\n", "ID", "Сумма", "Разность", "Произведение", "Частное", "Остаток от деления", "Модуль числа 1", "Модуль числа 2", "Число в степени другого числа");
-                while (rs.next()) {
-                    int ID = rs.getInt(1);
-                    int sum = rs.getInt(2);
-                    int sub = rs.getInt(3);
-                    int mul = rs.getInt(4);
-                    int div = rs.getInt(5);
-                    int mod = rs.getInt(6);
-                    int abs_1 = rs.getInt(7);
-                    int abs_2 = rs.getInt(8);
-                    int pow = rs.getInt(9);
-                    System.out.println(tablePart);
-                    System.out.printf("| %3d | %-10d | %-10d | %-15d | %-10d | %-20d | %-15d | %-15d | %-30d |\n", ID, sum, sub, mul, div, mod, abs_1, abs_2, pow);
-                }
-                System.out.println(tablePart);
+        String query = "SELECT * FROM " + table;
+        try (PreparedStatement pst = con.prepareStatement(query);
+             ResultSet rs = pst.executeQuery()) {
+
+            ResultSetMetaData rsmd = rs.getMetaData();
+            int length = rsmd.getColumnCount();
+
+            String[] columnNames = new String[length];
+            int[] maxLength = new int[length];
+
+            List<List<String>> rows = new ArrayList<>();
+
+            for (int i = 0; i < length; i++) {
+                columnNames[i] = rsmd.getColumnName(i + 1);
+                maxLength[i] = rsmd.getColumnName(i + 1).length();
             }
+
+            while (rs.next()) {
+                List<String> row = new ArrayList<>();
+                for (int i = 0; i < length; i++) {
+                    String obj = rs.getString(i + 1);
+                    obj = (obj != null) ? obj : "NULL";
+                    row.add(obj);
+                    if (obj.length() > maxLength[i]) {
+                        maxLength[i] = obj.length();
+                    }
+                }
+                rows.add(row);
+            }
+
+            StringBuilder border = new StringBuilder("+");
+            StringBuilder header = new StringBuilder("|");
+
+            for (int width : maxLength) {
+                border.append("-".repeat(width + 2)).append("+");
+            }
+            System.out.println("Полученные данные из таблицы: ");
+            System.out.println(border);
+
+
+            for (int i = 0; i < length; i++) {
+                header.append(" ").append(String.format("%-" + maxLength[i] + "s", columnNames[i])).append(" |");
+            }
+            System.out.println(header);
+            System.out.println(border);
+
+            for (List<String> row : rows) {
+                StringBuilder rowStr = new StringBuilder("|");
+                for (int i = 0; i < length; i++) {
+                    String val = (i < row.size()) ? row.get(i) : "";
+                    rowStr.append(" ").append(String.format("%-" + maxLength[i] + "s", val)).append(" |");
+                }
+                System.out.println(rowStr);
+                System.out.println(border);
+            }
+
         } catch (SQLException e) {
             System.out.println("Не удалось получить данные из таблицы, " + e.getMessage());
         }
@@ -317,7 +352,6 @@ class Task extends Main {
                 break;
             } catch (NumberFormatException e) {
                 System.out.println("Неверный формат ввода");
-                inputSecondNum();
             }
         }
         sc.nextLine();
