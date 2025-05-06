@@ -406,10 +406,13 @@ class ExportToExcel extends Main {
             Sheet sheet = wb.getSheetAt(0);
             System.out.println("\nДанные из Excel:");
 
-            int[] maxLength = new int[9];
+
             StringBuilder border = new StringBuilder("+");
 
             Row names = sheet.getRow(0);
+
+            int[] maxLength = new int[names.getLastCellNum()];
+
             for (Cell name : names) {
                 for (int i = 0; i < maxLength.length; i++) {
                     maxLength[i] = name.toString().length();
