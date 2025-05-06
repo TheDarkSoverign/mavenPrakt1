@@ -1,6 +1,7 @@
 package org.example;
 
 import java.sql.*;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.io.FileOutputStream;
@@ -17,6 +18,9 @@ public class Main {
     protected static Scanner sc = new Scanner(System.in);
     protected static Connection con;
     protected static String table = "task1";
+    static final String schema = "task1";
+    static final String selectFromTable = "SELECT * FROM " + table;
+    static final String tablePart = ("+" + "-".repeat(5) + "+" + "-".repeat(12) + "+" + "-".repeat(12) + "+" + "-".repeat(17) + "+" + "-".repeat(12) + "+" + "-".repeat(22) + "+" + "-".repeat(17) + "+" + "-".repeat(17) + "+" + "-".repeat(32) + "+");
 
     static String Url = "jdbc:postgresql://localhost:5432/postgres";
 
@@ -25,6 +29,25 @@ public class Main {
             con = DriverManager.getConnection(Url, "postgres", "postgres");
         } catch (SQLException e) {
             System.out.println("Не удалось подключиться к базе данных: " + e.getMessage());
+        }
+
+        try {
+            con.setAutoCommit(false);
+
+            Statement st = con.createStatement();
+            st.executeUpdate("CREATE SCHEMA IF NOT EXISTS " + schema);
+            st.executeUpdate("SET search_path TO " + schema);
+
+            con.commit();
+            con.setAutoCommit(true);
+            System.out.println("Используется схема - " + schema);
+        } catch (SQLException e) {
+            System.out.println("Не удалось создать схему для задания: " + e.getMessage());
+            try {
+                con.rollback();
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex);
+            }
         }
 
         String query = "CREATE TABLE IF NOT EXISTS task1 (id SERIAL, sum INT, sub INT, mul INT, div INT, mod INT, abs_1 INT, abs_2 INT, pow INT)";
@@ -54,8 +77,8 @@ public class Main {
             System.out.println("7. Деление по модулю двух чисел");
             System.out.println("8. Модуль двух чисел");
             System.out.println("9. Число в степени другого числа");
-            System.out.println("10. Записать результаты в таблицу");
-            System.out.println("11. Записать данные в Excel");
+            System.out.println("10. Записать результаты в таблицу и вывести");
+            System.out.println("11. Записать данные в Excel и вывести");
             System.out.println("0. Выход");
             System.out.print("Выберите пункт меню: ");
             s = sc.nextLine();
@@ -74,7 +97,10 @@ public class Main {
                 case 7 -> tasks.task7();
                 case 8 -> tasks.task8();
                 case 9 -> tasks.task9();
-                case 10 -> tasks.insertData();
+                case 10 -> {
+                    tasks.insertData();
+                    tasks.selectData();
+                }
                 case 11 -> {
                     System.out.print("Введите название файла: ");
                     String filepath = sc.nextLine();
@@ -84,6 +110,7 @@ public class Main {
                     }
 
                     export.exportData(table, filepath);
+                    export.printExcelData(filepath);
                 }
                 case 0 -> System.out.println("Пока!");
                 default -> System.out.println("Неправильно выбран пункт меню! Попробуйте еще раз...");
@@ -112,16 +139,32 @@ class Task extends Main {
     static Object pow = null;
 
     public void task1() {
-        String query = "SELECT table_name AS Названия_таблиц FROM information_schema.tables WHERE table_schema = 'public'";
+        String query = "SELECT table_name AS Названия_таблиц FROM information_schema.tables WHERE table_schema = '" + schema + "'";
         try {
             Statement st = con.createStatement();
             ResultSet rs = st.executeQuery(query);
             try {
+                int count = 1;
+                int nameLength = 15;
+                while (rs.next()) {
+                    int currentNameLength = rs.getString(1).length();
+                    if (currentNameLength > nameLength) {
+                        count++;
+                        nameLength = currentNameLength;
+                    }
+                }
+                String tablePart = "+" + "-".repeat(5) + "+" + "-".repeat(nameLength + 2) + "+";
                 System.out.println("Список таблиц:");
+                System.out.println(tablePart);
+                System.out.printf("| %-3s | %-15s |\n", "ID", "Названия таблиц");
+
+                int i = 1;
                 while (rs.next()) {
                     String tableName = rs.getString("Названия_таблиц");
-                    System.out.println(tableName);
+                    System.out.println("+" + "-".repeat(5) + "+" + "-".repeat(27) + "+");
+                    System.out.printf("| %-3d | %-25s |\n", i++, tableName);
                 }
+                System.out.println("+" + "-".repeat(5) + "+" + "-".repeat(27) + "+");
             } catch (SQLException e) {
                 System.out.println("Не удалось вывести результат, " + e.getMessage());
             }
@@ -223,28 +266,61 @@ class Task extends Main {
         }
     }
 
-    public void inputFirstNum() {
-        try {
-            System.out.print("Введите первое число: ");
-            String s = sc.next();
-            firstNum = Integer.parseInt(s);
-            System.out.println();
-        } catch (NumberFormatException e) {
-            System.out.println("Неверный формат ввода");
-            inputFirstNum();
+    public void selectData() {
+        System.out.println("Получаю данные...");
+        try (PreparedStatement pst = con.prepareStatement(selectFromTable)) {
+            try (ResultSet rs = pst.executeQuery()) {
+                System.out.println("Полученные данные: ");
+                System.out.println(tablePart);
+                System.out.printf("| %3s | %-10s | %-10s | %-15s | %-10s | %-20s | %-15s | %-15s | %-30s |\n", "ID", "Сумма", "Разность", "Произведение", "Частное", "Остаток от деления", "Модуль числа 1", "Модуль числа 2", "Число в степени другого числа");
+                while (rs.next()) {
+                    int ID = rs.getInt(1);
+                    int sum = rs.getInt(2);
+                    int sub = rs.getInt(3);
+                    int mul = rs.getInt(4);
+                    int div = rs.getInt(5);
+                    int mod = rs.getInt(6);
+                    int abs_1 = rs.getInt(7);
+                    int abs_2 = rs.getInt(8);
+                    int pow = rs.getInt(9);
+                    System.out.println(tablePart);
+                    System.out.printf("| %3d | %-10d | %-10d | %-15d | %-10d | %-20d | %-15d | %-15d | %-30d |\n", ID, sum, sub, mul, div, mod, abs_1, abs_2, pow);
+                }
+                System.out.println(tablePart);
+            }
+        } catch (SQLException e) {
+            System.out.println("Не удалось получить данные из таблицы, " + e.getMessage());
         }
     }
 
-    public void inputSecondNum() {
-        try {
-            System.out.print("Введите второе число: ");
-            String s = sc.next();
-            secondNum = Integer.parseInt(s);
-            System.out.println();
-        } catch (NumberFormatException e) {
-            System.out.println("Неверный формат ввода");
-            inputSecondNum();
+    public void inputFirstNum() {
+        while (true) {
+            try {
+                System.out.print("Введите первое число: ");
+                String s = sc.next();
+                firstNum = Integer.parseInt(s);
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Неверный формат ввода");
+            }
         }
+        sc.nextLine();
+    }
+
+    public void inputSecondNum() {
+        while (true) {
+            try {
+                System.out.print("Введите второе число: ");
+                String s = sc.next();
+                secondNum = Integer.parseInt(s);
+                System.out.println();
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Неверный формат ввода");
+                inputSecondNum();
+            }
+        }
+        sc.nextLine();
     }
 }
 
@@ -297,6 +373,30 @@ class ExportToExcel extends Main {
             }
         } catch (IOException | SQLException e) {
             System.out.println("Ошибка при экспорте данных: " + e);
+        }
+    }
+
+    public void printExcelData(String filepath) {
+        try (Workbook wb = new XSSFWorkbook(filepath)) {
+            Sheet sheet = wb.getSheetAt(0);
+            System.out.println("\nДанные из Excel:");
+            for (Row row : sheet) {
+                Cell id = row.getCell(0);
+                Cell sum = row.getCell(1);
+                Cell sub = row.getCell(2);
+                Cell mul = row.getCell(3);
+                Cell div = row.getCell(4);
+                Cell mod = row.getCell(5);
+                Cell abs_1 = row.getCell(6);
+                Cell abs_2 = row.getCell(7);
+                Cell pow = row.getCell(8);
+
+                System.out.println(tablePart);
+                System.out.printf("| %3s | %-10s | %-10s | %-15s | %-10s | %-20s | %-15s | %-15s | %-30s |\n", id, sum, sub, mul, div, mod, abs_1, abs_2, pow);
+            }
+            System.out.println(tablePart);
+        } catch (IOException e) {
+            System.out.println("Ошибка при чтении Excel-файла: " + e.getMessage());
         }
     }
 }
