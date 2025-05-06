@@ -160,7 +160,7 @@ class Task extends Main {
                 while (rs.next()) {
                     String tableName = rs.getString("Названия_таблиц");
                     System.out.println(tablePart);
-                    System.out.printf("| %-3d | %-25s |\n", i++, tableName);
+                    System.out.printf("| %-3d | %-" + nameLength + "s |\n", i++, tableName);
                 }
                 System.out.println(tablePart);
             } catch (SQLException e) {
@@ -414,21 +414,42 @@ class ExportToExcel extends Main {
         try (Workbook wb = new XSSFWorkbook(filepath)) {
             Sheet sheet = wb.getSheetAt(0);
             System.out.println("\nДанные из Excel:");
-            for (Row row : sheet) {
-                Cell id = row.getCell(0);
-                Cell sum = row.getCell(1);
-                Cell sub = row.getCell(2);
-                Cell mul = row.getCell(3);
-                Cell div = row.getCell(4);
-                Cell mod = row.getCell(5);
-                Cell abs_1 = row.getCell(6);
-                Cell abs_2 = row.getCell(7);
-                Cell pow = row.getCell(8);
 
-                System.out.println(tablePart);
-                System.out.printf("| %3s | %-10s | %-10s | %-15s | %-10s | %-20s | %-15s | %-15s | %-30s |\n", id, sum, sub, mul, div, mod, abs_1, abs_2, pow);
+            int[] maxLength = new int[9];
+            StringBuilder border = new StringBuilder("+");
+
+            Row names = sheet.getRow(0);
+            for (Cell name : names) {
+                for (int i = 0; i < maxLength.length; i++) {
+                    maxLength[i] = name.toString().length();
+                }
             }
-            System.out.println(tablePart);
+            for (Row row : sheet) {
+                for (int i = 0; i < maxLength.length; i++) {
+                    Cell obj = row.getCell(i);
+                    int length = obj.toString().length();
+                    if (length > maxLength[i]) {
+                        maxLength[i] = length;
+                    }
+                }
+            }
+
+            for (int width : maxLength) {
+                border.append("-".repeat(width + 2)).append("+");
+            }
+
+            System.out.println(border);
+
+            for (Row row : sheet) {
+                StringBuilder rowStr = new StringBuilder("|");
+                for (int i = 0; i < maxLength.length; i++) {
+                    Cell obj = row.getCell(i);
+                    rowStr.append(" ").append(String.format("%-" + maxLength[i] + "s", obj)).append(" |");
+                }
+                System.out.println(rowStr);
+                System.out.println(border);
+            }
+
         } catch (IOException e) {
             System.out.println("Ошибка при чтении Excel-файла: " + e.getMessage());
         }
