@@ -19,7 +19,6 @@ public class Main {
     protected static Connection con;
     protected static String table;
     static final String schema = "task1";
-    static final String tablePart = ("+" + "-".repeat(5) + "+" + "-".repeat(12) + "+" + "-".repeat(12) + "+" + "-".repeat(17) + "+" + "-".repeat(12) + "+" + "-".repeat(22) + "+" + "-".repeat(17) + "+" + "-".repeat(17) + "+" + "-".repeat(32) + "+");
 
     static String Url = "jdbc:postgresql://localhost:5432/postgres";
 
@@ -49,16 +48,7 @@ public class Main {
             }
         }
 
-        table = "task1";
-        String query = "CREATE TABLE IF NOT EXISTS " + table + " (id SERIAL, sum INT, sub INT, mul INT, div INT, mod INT, abs_1 INT, abs_2 INT, pow INT)";
-        try {
-            Statement st = con.createStatement();
-            st.executeUpdate(query);
-            table = "task1";
-            System.out.println("Используется таблица по умолчанию - " + table);
-        } catch (SQLException e) {
-            System.out.println("Не удалось использовать таблицу по умолчанию, " + e.getMessage());
-        }
+
     }
 
     protected static void menu() {
@@ -414,9 +404,8 @@ class ExportToExcel extends Main {
             int[] maxLength = new int[names.getLastCellNum()];
 
             for (Cell name : names) {
-                for (int i = 0; i < maxLength.length; i++) {
-                    maxLength[i] = name.toString().length();
-                }
+                maxLength[name.getColumnIndex()] = name.toString().length();
+
             }
             for (Row row : sheet) {
                 for (int i = 0; i < maxLength.length; i++) {
